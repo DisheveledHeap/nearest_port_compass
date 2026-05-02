@@ -19,6 +19,8 @@
 #include <Arduino.h>
 #include <Wire.h>
 #include <math.h>
+#include "access_loader.h"
+#include "water_accesses.h"
 
 // ── QMC5883L ──────────────────────────────────────────────────────────────────
 #define QMC5883L_ADDR  0x0D
@@ -38,6 +40,10 @@
 
 #define NMEA_BUF_SIZE 128
 #define PRINT_INTERVAL_MS 500
+
+// portfinder
+WaterAccessFinder finder;
+finder.loadFromArray(WATER_ACCESS_POINTS, WATER_ACCESS_COUNT);
 
 // =============================================================================
 //  QMC5883L
@@ -197,5 +203,10 @@ void loop() {
         } else {
             Serial.println("Lat: --        Lon: --");
         }
+
+        // Find bearing to nearest port
+        NearestResult r = finder.findNearest(myLat, myLon);
+
+        Serial.println("Found a %s %dkm away at a bearing of %.1f°", r.type, r.distanceKm, r.bearingDeg);
     }
 }
