@@ -5,6 +5,10 @@
 #include "freertos/task.h"
 #include "driver/gpio.h"
 
+#include "common.h"
+#include "gnss.h"
+#include "qmc5883l.h"
+
 static const gpio_num_t StepperPins[4] = {
     GPIO_NUM_25,
     GPIO_NUM_26,
@@ -17,12 +21,12 @@ static const gpio_num_t GpsPins[2] = {
     GPIO_NUM_17 // GPS RX, ESP32 TX
 };
 
-static const gpio_num_t MagnetometerPins[3] = {
+static const gpio_num_t MagnetometerPins[2] = {
     GPIO_NUM_21, // SDA (Data line)
     GPIO_NUM_22, // SCL (Clock line)
 };
 
-static const gpio_num_t SDCardPins[6] = {
+static const gpio_num_t SDCardPins[4] = {
     GPIO_NUM_23, // MOSI (Master Out Slave In)
     GPIO_NUM_19, // MISO (Master In Slave Out)
     GPIO_NUM_18, // SCK (Serial Clock)
@@ -72,10 +76,24 @@ static void turn_degree(float degree)
 
 void app_main(void)
 {
+
+    gnss_init(GpsPins[0], GpsPins[1]);
+    qmc5883l_init(MagnetometerPins[0], MagnetometerPins[1]);
+
     for (int i = 0; i < 4; i++) {
         gpio_set_direction(StepperPins[i], GPIO_MODE_OUTPUT);
         gpio_set_level(StepperPins[i], 0);
     }
 
     turn_degree(360.0f); // Turn one full rotation
+
+    while (1) {
+        gnss_update(&data);
+        qmc5883l_update(&data);
+
+        printf("Lat: %.6f, Lon: %.6f, Heading: %.2f\r",
+               data.latitude,
+               data.longitude,
+               data.heading);
+    }
 }
