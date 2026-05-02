@@ -76,7 +76,7 @@ static void turn_degree(float degree)
 
 void app_main(void)
 {
-    sensor_data_t data = {0}
+    sensor_data_t data = {0};
 
     gnss_init(GpsPins[0], GpsPins[1]);
     qmc5883l_init(MagnetometerPins[0], MagnetometerPins[1]);
@@ -93,8 +93,8 @@ void app_main(void)
         qmc5883l_update(&data);
 
         printf("Lat: %.6f, Lon: %.6f, Heading: %.2f\r",
-               data.latitude,
-               data.longitude,
-               data.heading);
-    }
+            data.latitude,
+            data.longitude,
+            data.heading);
+    };
 }
