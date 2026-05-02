@@ -15,12 +15,17 @@
  *   TX   → GPIO 16  (ESP32 RX2)
  *   RX   → GPIO 17  (ESP32 TX2)
  */
-
-#include <arduino.h>
-#include <Wire.h>
+#include <stdio.h>
 #include <math.h>
-#include "access_loader.h"
-#include "water_accesses.h"
+
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+
+#include "driver/gpio.h"
+#include "driver/uart.h"
+#include "driver/i2c.h"
+
+#include "esp_log.h"
 
 // ── QMC5883L ──────────────────────────────────────────────────────────────────
 #define QMC5883L_ADDR  0x0D
