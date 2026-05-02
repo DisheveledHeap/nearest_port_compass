@@ -28,6 +28,8 @@
 #define QMC_REG_CFG2   0x0A
 #define QMC_REG_SR     0x0B
 
+#define COMPASS_OFFSET_FROM_ENCLOSURE 0.0f
+
 // ── GNSS ──────────────────────────────────────────────────────────────────────
 #define GNSS_SERIAL  Serial2
 #define GNSS_BAUD    9600
@@ -183,8 +185,8 @@ void loop() {
         // Compass: XY heading in radians [-π, π]
         int16_t cx, cy, cz;
         if (qmcRead(cx, cy, cz)) {
-            float heading = atan2f((float)cy, (float)cx);
-            Serial.printf("Heading (XY): %.4f rad  |  ", heading);
+            float heading = atan2f((float)cy, (float)cx) + COMPASS_OFFSET_FROM_ENCLOSURE;
+            Serial.printf("Heading (XY): %.4f rad (%.1f°) |  ", heading, heading * 180.0f / M_PI);
         } else {
             Serial.print("Heading (XY): --        |  ");
         }
