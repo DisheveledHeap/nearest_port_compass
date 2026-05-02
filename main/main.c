@@ -5,11 +5,28 @@
 #include "freertos/task.h"
 #include "driver/gpio.h"
 
-static const gpio_num_t pins[4] = {
+static const gpio_num_t StepperPins[4] = {
     GPIO_NUM_25,
     GPIO_NUM_26,
     GPIO_NUM_32,
     GPIO_NUM_33
+};
+
+static const gpio_num_t GpsPins[2] = {
+    GPIO_NUM_16, // GPS TX, ESP32 RX
+    GPIO_NUM_17 // GPS RX, ESP32 TX
+};
+
+static const gpio_num_t MagnetometerPins[3] = {
+    GPIO_NUM_21, // SDA (Data line)
+    GPIO_NUM_22, // SCL (Clock line)
+};
+
+static const gpio_num_t SDCardPins[6] = {
+    GPIO_NUM_23, // MOSI (Master Out Slave In)
+    GPIO_NUM_19, // MISO (Master In Slave Out)
+    GPIO_NUM_18, // SCK (Serial Clock)
+    GPIO_NUM_5,  // CS (Chip Select)
 };
 
 static const int steps[8][4] = {
@@ -28,14 +45,14 @@ static int step_index = 0;
 static void step_motor(int s)
 {
     for (int i = 0; i < 4; i++) {
-        gpio_set_level(pins[i], steps[s][i]);
+        gpio_set_level(StepperPins[i], steps[s][i]);
     }
 }
 
 static void motor_off(void)
 {
     for (int i = 0; i < 4; i++) {
-        gpio_set_level(pins[i], 0);
+        gpio_set_level(StepperPins[i], 0);
     }
 }
 
@@ -56,8 +73,8 @@ static void turn_degree(float degree)
 void app_main(void)
 {
     for (int i = 0; i < 4; i++) {
-        gpio_set_direction(pins[i], GPIO_MODE_OUTPUT);
-        gpio_set_level(pins[i], 0);
+        gpio_set_direction(StepperPins[i], GPIO_MODE_OUTPUT);
+        gpio_set_level(StepperPins[i], 0);
     }
 
     turn_degree(360.0f); // Turn one full rotation
