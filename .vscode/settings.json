@@ -15,5 +15,6 @@
   "idf.customExtraVars": {
     "ADF_PATH": "/Users/sreyas/.espressif/tools",
     "IDF_TARGET": "esp32"
-  }
+  },
+  "idf.port": "/dev/tty.usbserial-0001"
 }
