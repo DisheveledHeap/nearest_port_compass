@@ -76,6 +76,7 @@ static void turn_degree(float degree)
 
 void app_main(void)
 {
+    sensor_data_t data = {0}
 
     gnss_init(GpsPins[0], GpsPins[1]);
     qmc5883l_init(MagnetometerPins[0], MagnetometerPins[1]);
