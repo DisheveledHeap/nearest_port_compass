@@ -8,6 +8,7 @@
 #include "common.h"
 #include "gnss.h"
 #include "qmc5883l.h"
+#include "water_accesses.h"
 
 static const gpio_num_t StepperPins[4] = {
     GPIO_NUM_25,
@@ -76,6 +77,7 @@ static void turn_degree(float degree)
 
 void app_main(void)
 {
+    struct Quad q;
     sensor_data_t data = {0};
 
     printf("SD Card Pins: MOSI=%d, MISO=%d, SCK=%d, CS=%d\r\n",
@@ -83,6 +85,8 @@ void app_main(void)
 
     gnss_init(GpsPins[0], GpsPins[1]);
     qmc5883l_init(MagnetometerPins[0], MagnetometerPins[1]);
+    quad_initialize(q);
+    
 
     for (int i = 0; i < 4; i++) {
         gpio_set_direction(StepperPins[i], GPIO_MODE_OUTPUT);
@@ -93,10 +97,17 @@ void app_main(void)
         gnss_update(&data);
         qmc5883l_update(&data);
 
-        printf("Lat: %.6f, Lon: %.6f, Heading: %.2f\n",
+        int32_t check_lat = (int32_t)(data.latitude * WA_SCALE);
+        int32_t check_lon = (int32_t)(data.longitude * WA_SCALE);
+
+        struct WA_Point nearest = get_nearest(&q, check_lat, check_lon);
+
+        printf("Lat: %.6f, Lon: %.6f, Heading: %.2f; closest port at (%d, %d)\n",
             data.latitude,
             data.longitude,
-            data.heading);
+            data.heading,
+            nearest.lat,
+            nearest.lon);
         vTaskDelay(pdMS_TO_TICKS(500));
     };
 }
