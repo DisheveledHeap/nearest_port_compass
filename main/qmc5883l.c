@@ -28,7 +28,7 @@ void qmc5883l_init(gpio_num_t sda, gpio_num_t scl) {
         .scl_io_num = scl,
         .sda_pullup_en = GPIO_PULLUP_ENABLE,
         .scl_pullup_en = GPIO_PULLUP_ENABLE,
-        .master.clk_speed = 100000
+        .master.clk_speed = 10000
     };
 
     i2c_param_config(I2C_NUM_0, &conf);
@@ -41,22 +41,28 @@ void qmc5883l_init(gpio_num_t sda, gpio_num_t scl) {
 
 void qmc5883l_update(sensor_data_t *data) {
     uint8_t raw[6];
+    static float last_good_heading = 0.0f;
 
     esp_err_t err = read_data(0x00, raw, 6);
     if (err != ESP_OK) {
         printf("QMC read failed: %s\n", esp_err_to_name(err));
+        data->heading = last_good_heading;
         return;
-}
+    }
 
     int16_t x = (raw[1] << 8) | raw[0];
     int16_t y = (raw[3] << 8) | raw[2];
 
-    x -= x_offset;
-    y -= y_offset;
+    if (x == 0 && y == 0) {
+        printf("QMC returned 0,0; keeping last heading\n");
+        data->heading = last_good_heading;
+        return;
+    }
 
-    float heading = atan2f((float)y, (float)x) * 180.0 / M_PI;
-    if (heading < 0) heading += 360;
+    float heading = atan2f((float)y, (float)x) * 180.0f / M_PI;
+    if (heading < 0) heading += 360.0f;
 
+    last_good_heading = heading;
     data->heading = heading;
-    printf("QMC raw: %d %d\n", x, y);
-}
+        printf("QMC raw: %d %d\n", x, y);
+    }
