@@ -128,6 +128,8 @@ esp_err_t nvs_load_direction() {
 #define SHORT_PRESS_MS 300
 #define LONG_PRESS_MS  1000
 
+static int selected_port_index = 0;
+
 void handle_button() {
     static int last_state = 1;
     static int64_t press_start = 0;
@@ -147,9 +149,11 @@ void handle_button() {
         if (duration >= LONG_PRESS_MS) {
             // LONG PRESS
             printf("Long press\n");
+            selected_port_index = 0;
         } else if (duration >= SHORT_PRESS_MS) {
             // SHORT PRESS
-            printf("Short press\n");
+            selected_port_index = (selected_port_index + 1) % WA_K_NEAREST;
+            printf("Short press, now getting %dth nearest\n", selected_port_index);
         }
     }
 
@@ -171,8 +175,6 @@ void app_main(void)
     
     
     sensor_data_t data = {0};
-    
-    int selected_port_index = 0;
 
     printf("SD Card Pins: MOSI=%d, MISO=%d, SCK=%d, CS=%d\r\n",
         SDCardPins[0], SDCardPins[1], SDCardPins[2], SDCardPins[3]);
@@ -189,6 +191,8 @@ void app_main(void)
     while (1) {
         gnss_update(&data);
         qmc5883l_update(&data);
+
+        handle_button();
 
         int32_t my_lat = (int32_t)(data.latitude * WA_SCALE);
         int32_t my_lon = (int32_t)(data.longitude * WA_SCALE);
