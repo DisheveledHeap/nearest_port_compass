@@ -1,9 +1,12 @@
 #include <stdio.h>
 #include <math.h>
+#include <string.h>
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "driver/gpio.h"
+#include "nvs_flash.h"
+#include "nvs.h"
 
 #include "common.h"
 #include "gnss.h"
@@ -76,11 +79,58 @@ static void turn_degree(float degree)
     motor_off();
 }
 
-static int true_turn_degree = 0;
+static float stepper_dir = 0.0;
+
+esp_err_t nvs_save_direction() {
+    uint32_t bits;
+    memcpy(&bits, &stepper_dir, sizeof(bits)); // safe type-pun, no UB
+
+    nvs_handle_t handle;
+    esp_err_t ret = nvs_open(NVS_NAMESPACE, NVS_READWRITE, &handle);
+    if (ret != ESP_OK) return ret;
+
+    ret = nvs_set_u32(handle, NVS_DIR_KEY, bits);
+    if (ret == ESP_OK) ret = nvs_commit(handle);
+
+    nvs_close(handle);
+    return ret;
+}
+
+esp_err_t nvs_load_direction() {
+    nvs_handle_t handle;
+    esp_err_t ret = nvs_open(NVS_NAMESPACE, NVS_READONLY, &handle);
+    if (ret != ESP_OK) {
+        stepper_dir = 0.0f;
+        return ESP_OK;
+    }
+
+    uint32_t bits = 0;
+    ret = nvs_get_u32(handle, NVS_DIR_KEY, &bits);
+
+    if (ret == ESP_ERR_NVS_NOT_FOUND) {
+        stepper_dir = 0.0f;
+        ret = ESP_OK;
+    } else {
+        memcpy(out_dir, &bits, sizeof(float));
+    }
+
+    nvs_close(handle);
+    return ret;
+}
 
 
 void app_main(void)
 {
+    //must be first thing in app_main or pages will be misaligned with page tables
+    esp_err_t ret = nvs_flash_init();
+
+    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        ESP_ERROR_CHECK(nvs_flash_erase());
+        ret = nvs_flash_init();
+    }
+    ESP_ERROR_CHECK(ret);
+    nvs_load_direction();
+
     
     struct Quad q;
     sensor_data_t data = {0};
@@ -108,7 +158,7 @@ void app_main(void)
 
         struct WA_Point nearest = get_nearest(&q, check_lat, check_lon);
 
-        float relative_dir_to_port = turn_to_face(check_lat, check_lon, nearest.lat, nearest.lon, data.heading);
+        float relative_dir_to_port = turn_to_face(check_lat, check_lon, nearest.lat, nearest.lon, data.heading); // contains direction relative to the magnetometer
 
         printf("Lat: %.6f, Lon: %.6f, Heading: %.2f; closest port at (%ld, %ld); comparative direction to nearest port: %.2f\n",
             data.latitude,
@@ -118,7 +168,12 @@ void app_main(void)
             nearest.lon,
             relative_dir_to_port);
         vTaskDelay(pdMS_TO_TICKS(500));
-        true_turn_degree += relative_dir_to_port - true_turn_degree;
-        turn_degree(true_turn_degree);
+
+        float to_turn = relative_dir_to_port - stepper_dir;
+        if (to_turn != 0.0) {
+            turn_degree(to_turn);
+            stepper_dir = relative_dir_to_port;
+            nvs_save_direction();
+        }
     };
 }
