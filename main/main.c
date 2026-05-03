@@ -53,6 +53,8 @@ static const int steps[8][4] = {
     {0,0,0,1}
 };
 
+void handle_button(void);
+
 static int step_index = 0;
 
 static void step_motor(int s)
@@ -77,6 +79,11 @@ static void turn_degree(float degree)
     for (int i = 0; i < steps_to_move; i++) {
         step_motor(step_index);
         step_index = (step_index + direction + 8) % 8;
+
+        if (i % 10 == 0) {
+            handle_button();
+        }
+
         vTaskDelay(pdMS_TO_TICKS(15));
     }
 
@@ -140,6 +147,7 @@ void handle_button() {
     // Button just pressed
     if (last_state == 1 && current == 0) {
         press_start = now;
+        printf("Button pressed\n");
     }
 
     // Button just released
@@ -188,6 +196,15 @@ void app_main(void)
         gpio_set_level(StepperPins[i], 0);
     }
 
+    gpio_config_t button_conf = {
+        .pin_bit_mask = (1ULL << BUTTON),
+        .mode = GPIO_MODE_INPUT,
+        .pull_up_en = GPIO_PULLUP_ENABLE,
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .intr_type = GPIO_INTR_DISABLE
+    };
+    gpio_config(&button_conf);
+
     while (1) {
         gnss_update(&data);
         qmc5883l_update(&data);
@@ -215,7 +232,10 @@ void app_main(void)
             target.lat,
             target.lon,
             relative_dir_to_port);
-        vTaskDelay(pdMS_TO_TICKS(500));
+        for (int i = 0; i < 50; i++) {
+            handle_button();
+            vTaskDelay(pdMS_TO_TICKS(10));
+        }
 
         float to_turn = relative_dir_to_port - stepper_dir;
         
