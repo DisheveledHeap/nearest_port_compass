@@ -114,7 +114,7 @@ esp_err_t nvs_load_direction() {
         stepper_dir = 0.0f;
         ret = ESP_OK;
     } else {
-        memcpy(stepper_dir, &bits, sizeof(float));
+        memcpy(&stepper_dir, &bits, sizeof(float));
     }
 
     nvs_close(handle);
@@ -137,7 +137,10 @@ void app_main(void)
     
     struct Quad q;
     sensor_data_t data = {0};
-    turn_degree(0); // Initialize motor state
+    
+    struct Quad water_tree;
+    quad_initialize(&water_tree);
+    int selected_port_index = 0;
 
     printf("SD Card Pins: MOSI=%d, MISO=%d, SCK=%d, CS=%d\r\n",
         SDCardPins[0], SDCardPins[1], SDCardPins[2], SDCardPins[3]);
@@ -156,19 +159,26 @@ void app_main(void)
         gnss_update(&data);
         qmc5883l_update(&data);
 
-        int32_t check_lat = (int32_t)(data.latitude * WA_SCALE);
-        int32_t check_lon = (int32_t)(data.longitude * WA_SCALE);
+        int32_t my_lat = (int32_t)(data.latitude * WA_SCALE);
+        int32_t my_lon = (int32_t)(data.longitude * WA_SCALE);
 
-        struct WA_Point nearest = get_nearest(&q, check_lat, check_lon);
+        struct WA_NearestResult nearest = get_k_nearest(&water_tree, my_lat, my_lon);
 
-        float relative_dir_to_port = turn_to_face(check_lat, check_lon, nearest.lat, nearest.lon, data.heading); // contains direction relative to the magnetometer
+        struct WA_Point target = nearest.points[selected_port_index];
+
+        printf("Selected port %d/%d: (%ld, %ld)\n",
+            selected_port_index + 1,
+            nearest.count,
+            (long)target.lat,
+            (long)target.lon);
+        float relative_dir_to_port = turn_to_face(my_lat, my_lon, target.lat, target.lon, data.heading); // contains direction relative to the magnetometer
 
         printf("Lat: %.6f, Lon: %.6f, Heading: %.2f; closest port at (%ld, %ld); comparative direction to nearest port: %.2f\n",
             data.latitude,
             data.longitude,
             data.heading,
-            nearest.lat,
-            nearest.lon,
+            target.lat,
+            target.lon,
             relative_dir_to_port);
         vTaskDelay(pdMS_TO_TICKS(500));
 
