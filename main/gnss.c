@@ -40,7 +40,6 @@ void gnss_update(sensor_data_t *data) {
     if (len <= 0) return;
 
     buffer[len] = '\0';
-    printf("RAW GPS: %s\n", buffer);
 
     char *save_line;
     char *line = strtok_r(buffer, "\n", &save_line);
