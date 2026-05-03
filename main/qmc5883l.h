@@ -1,6 +1,7 @@
 #ifndef QMC5883L_H
 #define QMC5883L_H
 
+#include "driver/gpio.h"
 #include "common.h"
 
 void qmc5883l_init(gpio_num_t sda, gpio_num_t scl);

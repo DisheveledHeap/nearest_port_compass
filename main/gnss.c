@@ -43,23 +43,25 @@ void gnss_update(sensor_data_t *data) {
     while (line != NULL) {
         if (strstr(line, "$GPRMC")) {
             char *token;
-            int field = 0;
 
-            char lat[16], lon[16];
-            char lat_dir, lon_dir;
+            char lat[16] = {0};
+            char lon[16] = {0};
+            char lat_dir = 0;
+            char lon_dir = 0;
+            int field = 0;
 
             token = strtok(line, ",");
             while (token != NULL) {
-                if (field == 3) strcpy(lat, token);
-                if (field == 4) lat_dir = token[0];
-                if (field == 5) strcpy(lon, token);
-                if (field == 6) lon_dir = token[0];
+                if (field == 3 && token) strncpy(lat, token, sizeof(lat)-1);
+                if (field == 4 && token) lat_dir = token[0];
+                if (field == 5 && token) strncpy(lon, token, sizeof(lon)-1);
+                if (field == 6 && token) lon_dir = token[0];
 
                 token = strtok(NULL, ",");
                 field++;
             }
 
-            if (strlen(lat) > 0 && strlen(lon) > 0) {
+            if (strlen(lat) > 0 && strlen(lon) > 0 && lat_dir && lon_dir) {
                 data->latitude = convert_to_decimal(lat, lat_dir);
                 data->longitude = convert_to_decimal(lon, lon_dir);
             }

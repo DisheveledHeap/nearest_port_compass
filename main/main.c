@@ -78,6 +78,9 @@ void app_main(void)
 {
     sensor_data_t data = {0};
 
+    printf("SD Card Pins: MOSI=%d, MISO=%d, SCK=%d, CS=%d\r\n",
+        SDCardPins[0], SDCardPins[1], SDCardPins[2], SDCardPins[3]);
+
     gnss_init(GpsPins[0], GpsPins[1]);
     qmc5883l_init(MagnetometerPins[0], MagnetometerPins[1]);
 
@@ -96,5 +99,6 @@ void app_main(void)
             data.latitude,
             data.longitude,
             data.heading);
+        vTaskDelay(pdMS_TO_TICKS(1000));
     };
 }
