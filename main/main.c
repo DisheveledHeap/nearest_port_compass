@@ -8,6 +8,7 @@
 #include "common.h"
 #include "gnss.h"
 #include "qmc5883l.h"
+#include "motor.h"
 #include "water_accesses.h"
 
 static const gpio_num_t StepperPins[4] = {
@@ -85,7 +86,7 @@ void app_main(void)
 
     gnss_init(GpsPins[0], GpsPins[1]);
     qmc5883l_init(MagnetometerPins[0], MagnetometerPins[1]);
-    quad_initialize(q);
+    quad_initialize(&q);
     
 
     for (int i = 0; i < 4; i++) {
@@ -102,12 +103,15 @@ void app_main(void)
 
         struct WA_Point nearest = get_nearest(&q, check_lat, check_lon);
 
-        printf("Lat: %.6f, Lon: %.6f, Heading: %.2f; closest port at (%d, %d)\n",
+        float relative_dir_to_port = turn_to_face(check_lat, check_lon, nearest.lat, nearest.lon, data.heading);
+
+        printf("Lat: %.6f, Lon: %.6f, Heading: %.2f; closest port at (%d, %d); comparative direction to nearest port: %.2f\n",
             data.latitude,
             data.longitude,
             data.heading,
             nearest.lat,
-            nearest.lon);
+            nearest.lon,
+            relative_dir_to_port);
         vTaskDelay(pdMS_TO_TICKS(500));
     };
 }

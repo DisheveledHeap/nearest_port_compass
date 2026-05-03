@@ -50,13 +50,14 @@ void qmc5883l_update(sensor_data_t *data) {
 
     int16_t x = (raw[1] << 8) | raw[0];
     int16_t y = (raw[3] << 8) | raw[2];
+    int16_t z = (raw[5] << 8) | raw[4];
 
     x -= x_offset;
     y -= y_offset;
 
-    float heading = atan2f((float)y, (float)x) * 180.0 / M_PI;
+    float heading = atan2f((float)y, (float)x) * RAD2DEG;
     if (heading < 0) heading += 360;
 
     data->heading = heading;
-    printf("QMC raw: %d %d\n", x, y);
+    printf("QMC raw: %d %d %d\n", x, y, z);
 }
