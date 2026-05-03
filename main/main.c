@@ -214,6 +214,12 @@ void app_main(void)
         vTaskDelay(pdMS_TO_TICKS(500));
 
         float to_turn = relative_dir_to_port - stepper_dir;
+        
+        while (to_turn > 180.0)
+            to_turn -= 360.0;
+        while (to_turn < -180.0)
+            to_turn += 360.0;
+
         if (to_turn != 0.0) {
             turn_degree(to_turn);
             stepper_dir = relative_dir_to_port;
