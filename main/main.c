@@ -14,6 +14,9 @@
 #include "motor.h"
 #include "water_accesses.h"
 
+#define NVS_NAMESPACE "stepper"
+#define NVS_DIR_KEY   "direction"
+
 static const gpio_num_t StepperPins[4] = {
     GPIO_NUM_25,
     GPIO_NUM_26,
@@ -111,7 +114,7 @@ esp_err_t nvs_load_direction() {
         stepper_dir = 0.0f;
         ret = ESP_OK;
     } else {
-        memcpy(out_dir, &bits, sizeof(float));
+        memcpy(stepper_dir, &bits, sizeof(float));
     }
 
     nvs_close(handle);
