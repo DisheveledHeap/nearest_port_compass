@@ -64,5 +64,4 @@ void qmc5883l_update(sensor_data_t *data) {
 
     last_good_heading = heading;
     data->heading = heading;
-        printf("QMC raw: %d %d\n", x, y);
     }

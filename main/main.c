@@ -14,6 +14,7 @@
 #include "motor.h"
 #include "water_accesses.h"
 #include "esp_timer.h"
+#include "esp_log.h"
 
 #define NVS_NAMESPACE "stepper"
 #define NVS_DIR_KEY   "direction"
@@ -52,6 +53,9 @@ static const int steps[8][4] = {
     {0,0,1,1},
     {0,0,0,1}
 };
+
+static char last_button_event[80] = "None";
+static int button_press_count = 0;
 
 void handle_button(void);
 
@@ -147,7 +151,7 @@ void handle_button() {
     // Button just pressed
     if (last_state == 1 && current == 0) {
         press_start = now;
-        printf("Button pressed\n");
+        snprintf(last_button_event, sizeof(last_button_event), "Button pressed");
     }
 
     // Button just released
@@ -156,22 +160,72 @@ void handle_button() {
 
         if (duration >= LONG_PRESS_MS) {
             // LONG PRESS
-            printf("Long press\n");
+            snprintf(last_button_event, sizeof(last_button_event), "Long press -> reset");
+            button_press_count++;
             selected_port_index = 0;
         } else if (duration >= SHORT_PRESS_MS) {
             // SHORT PRESS
             selected_port_index = (selected_port_index + 1) % WA_K_NEAREST;
-            printf("Short press, now getting %dth nearest\n", selected_port_index);
+            snprintf(last_button_event, sizeof(last_button_event),
+            "Short press -> port %d/%d",
+            selected_port_index + 1, WA_K_NEAREST);
+            button_press_count++;
         }
     }
 
     last_state = current;
 }
 
+static void print_dashboard(sensor_data_t *data,
+                            struct WA_Point target,
+                            struct WA_NearestResult *nearest,
+                            float relative_dir_to_port)
+{
+    char buf[1024];
+
+    float to_turn = relative_dir_to_port - stepper_dir;
+
+    while (to_turn > 180.0f) to_turn -= 360.0f;
+    while (to_turn < -180.0f) to_turn += 360.0f;
+
+    snprintf(buf, sizeof(buf),
+        "\033[H"
+        "========================================\n"
+        "        NEAREST PORT COMPASS\n"
+        "========================================\n\n"
+        "Position\n"
+        "  Lat/Lon:       %.6f, %.6f\n\n"
+        "Orientation\n"
+        "  Heading:       %.2f deg\n"
+        "  Stepper Dir:   %.2f deg\n"
+        "  Turn Needed:   %.2f deg\n\n"
+        "Target\n"
+        "  Selected Port: %d/%d\n"
+        "  Coordinates:   (%ld, %ld)\n"
+        "  Relative Dir:  %.2f deg\n\n"
+        "Controls\n"
+        "  Last event:    %-20s\n"
+        "  Press count:   %d\n"
+        "========================================\n",
+        data->latitude, data->longitude,
+        data->heading,
+        stepper_dir,
+        to_turn,
+        selected_port_index + 1, nearest->count,
+        (long)target.lat, (long)target.lon,
+        relative_dir_to_port,
+        last_button_event,
+        button_press_count
+    );
+
+    printf("%s", buf);
+}
+
 void app_main(void)
 {
     //must be first thing in app_main or pages will be misaligned with page tables
     esp_err_t ret = nvs_flash_init();
+    esp_log_level_set("*", ESP_LOG_NONE);
 
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
         ESP_ERROR_CHECK(nvs_flash_erase());
@@ -180,7 +234,8 @@ void app_main(void)
     ESP_ERROR_CHECK(ret);
     nvs_load_direction();
 
-    
+    printf("SD Card Pins: SCK=%d, MISO=%d, MOSI=%d, CS=%d\n",
+        SDCardPins[2], SDCardPins[1], SDCardPins[0], SDCardPins[3]);
     
     sensor_data_t data = {0};
 
@@ -202,6 +257,8 @@ void app_main(void)
     };
     gpio_config(&button_conf);
 
+    printf("\033[2J"); // clear screen once
+
     while (1) {
         gnss_update(&data);
         qmc5883l_update(&data);
@@ -215,20 +272,10 @@ void app_main(void)
 
         struct WA_Point target = nearest.points[selected_port_index];
 
-        printf("Selected port %d/%d: (%ld, %ld)\n",
-            selected_port_index + 1,
-            nearest.count,
-            (long)target.lat,
-            (long)target.lon);
         float relative_dir_to_port = turn_to_face(my_lat, my_lon, target.lat, target.lon, data.heading); // contains direction relative to the magnetometer
 
-        printf("Lat: %.6f, Lon: %.6f, Heading: %.2f; closest port at (%ld, %ld); comparative direction to nearest port: %.2f\n",
-            data.latitude,
-            data.longitude,
-            data.heading,
-            target.lat,
-            target.lon,
-            relative_dir_to_port);
+        print_dashboard(&data, target, &nearest, relative_dir_to_port);
+
         for (int i = 0; i < 50; i++) {
             handle_button();
             vTaskDelay(pdMS_TO_TICKS(10));
