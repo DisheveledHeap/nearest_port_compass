@@ -291,7 +291,7 @@ void app_main(void)
         while (to_turn < -180.0)
             to_turn += 360.0;
 
-        if (to_turn != 0.0) {
+        if (to_turn * to_turn > 25.0f) {
             turn_degree(to_turn);
             stepper_dir = relative_dir_to_port;
             nvs_save_direction();

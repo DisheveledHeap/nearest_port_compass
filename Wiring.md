@@ -39,3 +39,8 @@ MISO → GPIO19  <br>
 SCK  → GPIO18  <br>
 CS   → GPIO5   <br>
 </p>
+
+## Button
+<p>
+Button Pin → GPIO27 <br>
+</p>

@@ -52,14 +52,15 @@ void qmc5883l_update(sensor_data_t *data) {
 
     int16_t x = (raw[1] << 8) | raw[0];
     int16_t y = (raw[3] << 8) | raw[2];
+    int16_t z = (raw[5] << 8) | raw[4];
 
-    if (x == 0 && y == 0) {
+    if (x == 0 && z == 0) {
         printf("QMC returned 0,0; keeping last heading\n");
         data->heading = last_good_heading;
         return;
     }
 
-    float heading = atan2f((float)y, (float)x) * 180.0f / M_PI;
+    float heading = atan2f((float)-z, (float)x) * 180.0f / M_PI;
     if (heading < 0) heading += 360.0f;
 
     last_good_heading = heading;
