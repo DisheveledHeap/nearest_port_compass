@@ -38,4 +38,14 @@ struct WA_Point get_nearest(struct Quad* q, int32_t lat, int32_t lon);
 extern const uint16_t WATER_ACCESS_COUNT;
 extern const struct WA_Point WATER_ACCESS_POINTS[];
 
+#define WA_K_NEAREST 5
+
+struct WA_NearestResult {
+    struct WA_Point points[WA_K_NEAREST];
+    int64_t distances[WA_K_NEAREST];
+    int count;
+};
+
+struct WA_NearestResult get_k_nearest(struct Quad* q, int32_t lat, int32_t lon);
+
 #endif

@@ -2480,3 +2480,73 @@ struct WA_Point get_nearest(struct Quad* q,
     return best;
 }
 
+#define K_NEAREST WA_K_NEAREST
+
+static void try_insert_best(struct WA_NearestResult* result,
+                            struct WA_Point point,
+                            int64_t dist)
+{
+    int insert_pos = result->count;
+
+    // If list is full and this point is worse than the worst, ignore it
+    if (result->count == K_NEAREST && dist >= result->distances[K_NEAREST - 1]) {
+        return;
+    }
+
+    // If not full, grow count
+    if (result->count < K_NEAREST) {
+        result->count++;
+    }
+
+    // Find insertion position
+    for (int i = 0; i < result->count; i++) {
+        if (dist < result->distances[i]) {
+            insert_pos = i;
+            break;
+        }
+    }
+
+    // Shift worse entries down
+    for (int i = result->count - 1; i > insert_pos; i--) {
+        result->points[i] = result->points[i - 1];
+        result->distances[i] = result->distances[i - 1];
+    }
+
+    // Insert new point
+    result->points[insert_pos] = point;
+    result->distances[insert_pos] = dist;
+}
+
+static void k_nearest_rec(struct Quad* q,
+                            int32_t lat,
+                            int32_t lon,
+                            struct WA_NearestResult* result)
+{
+    if (!q) return;
+
+    if (!is_empty(q)) {
+        int64_t d = dist_sq(lat, lon, q->cur.lat, q->cur.lon);
+        try_insert_best(result, q->cur, d);
+    }
+
+    k_nearest_rec(q->top_left_tree, lat, lon, result);
+    k_nearest_rec(q->top_right_tree, lat, lon, result);
+    k_nearest_rec(q->bottom_left_tree, lat, lon, result);
+    k_nearest_rec(q->bottom_right_tree, lat, lon, result);
+}
+
+struct WA_NearestResult get_k_nearest(struct Quad* q, int32_t lat, int32_t lon)
+{
+    struct WA_NearestResult result;
+
+    result.count = 0;
+
+    for (int i = 0; i < K_NEAREST; i++) {
+        result.points[i] = (struct WA_Point){0, 0};
+        result.distances[i] = LLONG_MAX;
+    }
+
+    k_nearest_rec(q, lat, lon, &result);
+
+    return result;
+}
