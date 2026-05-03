@@ -89,16 +89,14 @@ void app_main(void)
         gpio_set_level(StepperPins[i], 0);
     }
 
-    turn_degree(360.0f); // Turn one full rotation
-
     while (1) {
         gnss_update(&data);
         qmc5883l_update(&data);
 
-        printf("Lat: %.6f, Lon: %.6f, Heading: %.2f\r",
+        printf("Lat: %.6f, Lon: %.6f, Heading: %.2f\n",
             data.latitude,
             data.longitude,
             data.heading);
-        vTaskDelay(pdMS_TO_TICKS(1000));
+        vTaskDelay(pdMS_TO_TICKS(500));
     };
 }

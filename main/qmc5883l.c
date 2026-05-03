@@ -1,6 +1,10 @@
 #include "qmc5883l.h"
 #include "driver/i2c.h"
 #include <math.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "esp_err.h"
+#include <stdint.h>
 
 #define I2C_PORT I2C_NUM_0
 #define ADDR 0x0D
@@ -31,12 +35,18 @@ void qmc5883l_init(gpio_num_t sda, gpio_num_t scl) {
     i2c_driver_install(I2C_NUM_0, conf.mode, 0, 0, 0);
 
     // sensor setup...
+    write_reg(0x0B, 0x01); // Set/Reset period
+    write_reg(0x09, 0x1D); // Continuous mode, 200Hz, 8G, 512 OSR
 }
 
 void qmc5883l_update(sensor_data_t *data) {
     uint8_t raw[6];
 
-    if (read_data(0x00, raw, 6) != ESP_OK) return;
+    esp_err_t err = read_data(0x00, raw, 6);
+    if (err != ESP_OK) {
+        printf("QMC read failed: %s\n", esp_err_to_name(err));
+        return;
+}
 
     int16_t x = (raw[1] << 8) | raw[0];
     int16_t y = (raw[3] << 8) | raw[2];
@@ -48,4 +58,5 @@ void qmc5883l_update(sensor_data_t *data) {
     if (heading < 0) heading += 360;
 
     data->heading = heading;
+    printf("QMC raw: %d %d\n", x, y);
 }
