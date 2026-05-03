@@ -13,6 +13,7 @@
 #include "qmc5883l.h"
 #include "motor.h"
 #include "water_accesses.h"
+#include "esp_timer.h"
 
 #define NVS_NAMESPACE "stepper"
 #define NVS_DIR_KEY   "direction"
@@ -122,6 +123,39 @@ esp_err_t nvs_load_direction() {
 }
 
 
+#define BUTTON GPIO_NUM_27
+
+#define SHORT_PRESS_MS 300
+#define LONG_PRESS_MS  1000
+
+void handle_button() {
+    static int last_state = 1;
+    static int64_t press_start = 0;
+
+    int current = gpio_get_level(BUTTON);
+    int64_t now = esp_timer_get_time() / 1000; // micro → ms
+
+    // Button just pressed
+    if (last_state == 1 && current == 0) {
+        press_start = now;
+    }
+
+    // Button just released
+    if (last_state == 0 && current == 1) {
+        int64_t duration = now - press_start;
+
+        if (duration >= LONG_PRESS_MS) {
+            // LONG PRESS
+            printf("Long press\n");
+        } else if (duration >= SHORT_PRESS_MS) {
+            // SHORT PRESS
+            printf("Short press\n");
+        }
+    }
+
+    last_state = current;
+}
+
 void app_main(void)
 {
     //must be first thing in app_main or pages will be misaligned with page tables
@@ -134,6 +168,7 @@ void app_main(void)
     ESP_ERROR_CHECK(ret);
     nvs_load_direction();
 
+    
     
     sensor_data_t data = {0};
     
