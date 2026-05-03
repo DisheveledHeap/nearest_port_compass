@@ -105,7 +105,7 @@ void app_main(void)
 
         float relative_dir_to_port = turn_to_face(check_lat, check_lon, nearest.lat, nearest.lon, data.heading);
 
-        printf("Lat: %.6f, Lon: %.6f, Heading: %.2f; closest port at (%d, %d); comparative direction to nearest port: %.2f\n",
+        printf("Lat: %.6f, Lon: %.6f, Heading: %.2f; closest port at (%ld, %ld); comparative direction to nearest port: %.2f\n",
             data.latitude,
             data.longitude,
             data.heading,
