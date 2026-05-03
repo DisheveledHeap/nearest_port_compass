@@ -132,7 +132,7 @@ esp_err_t nvs_load_direction() {
 
 #define BUTTON GPIO_NUM_27
 
-#define SHORT_PRESS_MS 300
+#define SHORT_PRESS_MS 100
 #define LONG_PRESS_MS  1000
 
 static int selected_port_index = 0;
