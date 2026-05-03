@@ -181,31 +181,31 @@ static void print_dashboard(sensor_data_t *data,
                             struct WA_NearestResult *nearest,
                             float relative_dir_to_port)
 {
-    char buf[1024];
+    char buf[2048];
 
     float to_turn = relative_dir_to_port - stepper_dir;
 
     while (to_turn > 180.0f) to_turn -= 360.0f;
     while (to_turn < -180.0f) to_turn += 360.0f;
 
-    snprintf(buf, sizeof(buf),
-        "\033[H"
+    int len = snprintf(buf, sizeof(buf),
+        "\033[H\033[J"
         "========================================\n"
         "        NEAREST PORT COMPASS\n"
         "========================================\n\n"
         "Position\n"
-        "  Lat/Lon:       %.6f, %.6f\n\n"
+        "  Lat/Lon:       % .5f, % .5f\n\n"
         "Orientation\n"
-        "  Heading:       %.2f deg\n"
-        "  Stepper Dir:   %.2f deg\n"
-        "  Turn Needed:   %.2f deg\n\n"
+        "  Heading:       % 3.2f deg\n"
+        "  Stepper Dir:   % 3.2f deg\n"
+        "  Turn Needed:   % 3.2f deg\n\n"
         "Target\n"
         "  Selected Port: %d/%d\n"
-        "  Coordinates:   (%ld, %ld)\n"
-        "  Relative Dir:  %.2f deg\n\n"
+        "  Coordinates:   (% 8ld, % 8ld)\n"
+        "  Relative Dir:  % 3.2f deg\n\n"
         "Controls\n"
         "  Last event:    %-20s\n"
-        "  Press count:   %d\n"
+        "  Press count:   % 2d\n"
         "========================================\n",
         data->latitude, data->longitude,
         data->heading,
@@ -218,7 +218,10 @@ static void print_dashboard(sensor_data_t *data,
         button_press_count
     );
 
-    printf("%s", buf);
+    if (len > 0 && len < sizeof(buf)) {
+        printf("%s", buf);
+        fflush(stdout);
+    }
 }
 
 void app_main(void)
@@ -258,7 +261,7 @@ void app_main(void)
     gpio_config(&button_conf);
 
     printf("\033[2J"); // clear screen once
-
+    
     while (1) {
         gnss_update(&data);
         qmc5883l_update(&data);
