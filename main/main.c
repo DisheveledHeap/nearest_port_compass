@@ -78,7 +78,7 @@ static void turn_degree(float degree)
 
 void app_main(void)
 {
-    struct Quad q = (struct Quad*)malloc(sizeof(struct Quad));
+    struct Quad q;
     sensor_data_t data = {0};
 
     printf("SD Card Pins: MOSI=%d, MISO=%d, SCK=%d, CS=%d\r\n",
