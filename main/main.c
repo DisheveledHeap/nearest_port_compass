@@ -76,8 +76,12 @@ static void turn_degree(float degree)
     motor_off();
 }
 
+static int true_turn_degree = 0;
+
+
 void app_main(void)
 {
+    
     struct Quad q;
     sensor_data_t data = {0};
     turn_degree(0); // Initialize motor state
@@ -114,5 +118,7 @@ void app_main(void)
             nearest.lon,
             relative_dir_to_port);
         vTaskDelay(pdMS_TO_TICKS(500));
+        true_turn_degree += relative_dir_to_port - true_turn_degree;
+        turn_degree(true_turn_degree);
     };
 }

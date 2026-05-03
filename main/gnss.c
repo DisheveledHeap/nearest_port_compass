@@ -40,6 +40,7 @@ void gnss_update(sensor_data_t *data) {
     if (len <= 0) return;
 
     buffer[len] = '\0';
+    printf("RAW GPS: %s\n", buffer);
 
     char *save_line;
     char *line = strtok_r(buffer, "\n", &save_line);
@@ -71,7 +72,12 @@ void gnss_update(sensor_data_t *data) {
                 data->latitude = convert_to_decimal(lat, lat_dir);
                 data->longitude = convert_to_decimal(lon, lon_dir);
             }
+            if (data->latitude == 0.0 && data->longitude == 0.0) {
+                data->latitude = 44.567174;
+                data->longitude = -123.27856;
+            }
         }
+        
 
         line = strtok_r(NULL, "\n", &save_line);
     }
