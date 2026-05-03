@@ -135,11 +135,8 @@ void app_main(void)
     nvs_load_direction();
 
     
-    struct Quad q;
     sensor_data_t data = {0};
     
-    struct Quad water_tree;
-    quad_initialize(&water_tree);
     int selected_port_index = 0;
 
     printf("SD Card Pins: MOSI=%d, MISO=%d, SCK=%d, CS=%d\r\n",
@@ -147,7 +144,6 @@ void app_main(void)
 
     gnss_init(GpsPins[0], GpsPins[1]);
     qmc5883l_init(MagnetometerPins[0], MagnetometerPins[1]);
-    quad_initialize(&q);
     
 
     for (int i = 0; i < 4; i++) {
@@ -162,7 +158,7 @@ void app_main(void)
         int32_t my_lat = (int32_t)(data.latitude * WA_SCALE);
         int32_t my_lon = (int32_t)(data.longitude * WA_SCALE);
 
-        struct WA_NearestResult nearest = get_k_nearest(&water_tree, my_lat, my_lon);
+        struct WA_NearestResult nearest = get_k_nearest(my_lat, my_lon);
 
         struct WA_Point target = nearest.points[selected_port_index];
 
