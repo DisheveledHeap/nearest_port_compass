@@ -281,21 +281,12 @@ def write_header(entries: list[AccessPoint], path: str):
         "//",
         "// Format: { lat_scaled, lon_scaled, type, flags }",
         "//   lat/lon : int32_t  scaled by 10000 (4 decimal places = ~11m)",
-        "//   type    : uint8_t  see WaterAccessType enum",
-        "//   flags   : uint8_t  bit 0 = fee charged",
-        "//",
-        "// Types:",
-        "//   0=slipway  1=marina  2=ferry  3=pier  4=jetty  5=harbour",
-        "//   6=dock  7=fishing  8=water_sports  9=anchorage  10=berth",
-        "//   11=seamark  12=other",
         "#pragma once",
         "#include <stdint.h>",
         "",
         "struct WaterAccessPoint {",
         "    int32_t lat;    // degrees * 10000",
         "    int32_t lon;    // degrees * 10000",
-        "    uint8_t type;   // WaterAccessType",
-        "    uint8_t flags;  // bit 0 = fee",
         "};",
         "",
         f"const uint16_t WATER_ACCESS_COUNT = {len(entries)};",
@@ -306,10 +297,8 @@ def write_header(entries: list[AccessPoint], path: str):
     for ap in entries:
         lat_i   = int(round(ap.lat * SCALE))
         lon_i   = int(round(ap.lon * SCALE))
-        t       = TYPE_MAP.get(ap.access_type, 12)
-        flags   = 0x01 if ap.fee else 0x00
         comment = f"  // {ap.name}" if ap.name else ""
-        lines.append(f"    {{{lat_i:>10}, {lon_i:>11}, {t:>2}, {flags}}},{comment}")
+        lines.append(f"    {{{lat_i:>10}, {lon_i:>11}}},{comment}")
 
     lines += ["};", ""]
 
@@ -325,13 +314,11 @@ def write_binary(entries: list[AccessPoint], path: str):
     Layout:
         [4 bytes] magic  : 'WA_E'
         [2 bytes] count  : uint16_t
-        [N * 10 bytes]   : entries
+        [N * 8 bytes]   : entries
             [4] int32_t lat
             [4] int32_t lon
-            [1] uint8_t type
-            [1] uint8_t flags
 
-    Example: 1000 entries → 4 + 2 + (1000 * 10) = 10,006 bytes (~10 KB)
+    Example: 1000 entries → 4 + 2 + (1000 * 8) = 10,006 bytes (~10 KB)
     """
     with open(path, "wb") as f:
         f.write(b'WA_E')
@@ -339,9 +326,7 @@ def write_binary(entries: list[AccessPoint], path: str):
         for ap in entries:
             lat_i = int(round(ap.lat * SCALE))
             lon_i = int(round(ap.lon * SCALE))
-            t     = TYPE_MAP.get(ap.access_type, 12)
-            flags = 0x01 if ap.fee else 0x00
-            f.write(struct.pack("<iiBB", lat_i, lon_i, t, flags))
+            f.write(struct.pack("<ii", lat_i, lon_i))
 
     size = os.path.getsize(path)
     print(f"  Written: {path}  ({size:,} bytes)")
@@ -351,10 +336,9 @@ def write_csv(entries: list[AccessPoint], path: str):
     """Write human-readable CSV for inspection."""
     with open(path, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
-        writer.writerow(["lat", "lon", "type", "fee", "name"])
+        writer.writerow(["lat", "lon"])
         for ap in entries:
-            writer.writerow([ap.lat, ap.lon, ap.access_type,
-                             "yes" if ap.fee else "no", ap.name])
+            writer.writerow([ap.lat, ap.lon])
     print(f"  Written: {path}")
 
 
