@@ -80,6 +80,7 @@ void app_main(void)
 {
     struct Quad q;
     sensor_data_t data = {0};
+    turn_degree(0); // Initialize motor state
 
     printf("SD Card Pins: MOSI=%d, MISO=%d, SCK=%d, CS=%d\r\n",
         SDCardPins[0], SDCardPins[1], SDCardPins[2], SDCardPins[3]);
