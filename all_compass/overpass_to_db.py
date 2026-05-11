@@ -1,6 +1,6 @@
 import json
-import csv
 import math
+import sqlite3
 import time
 import urllib.request
 import urllib.parse
@@ -21,7 +21,7 @@ RETRY_BACKOFF    = 10        # seconds added per retry (10, 20, 30 …)
 # The first matching key wins for (type, subtype).
 TAG_KEYS = ["amenity", "shop", "tourism", "leisure", "historic", "natural"]
 
-OUTPUT_FILE = "pois.csv"
+OUTPUT_FILE = "pois.db"
 
 # ── Bounding-box splitting ────────────────────────────────────────────────────
 
@@ -147,15 +147,105 @@ def element_to_poi(el: dict) -> dict | None:
     return None  # has none of our desired tag keys
 
 
-# ── CSV output ────────────────────────────────────────────────────────────────
+# ── Geohash encoder ───────────────────────────────────────────────────────────
 
-def write_csv(pois: list[dict], path: str) -> None:
-    fieldnames = ["id", "lat", "lon", "name", "type", "subtype"]
-    with open(path, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
-        writer.writeheader()
-        writer.writerows(pois)
-    print(f"  Wrote {len(pois):,} rows → {path}")
+# Standard base32 alphabet used by the geohash spec
+_BASE32 = "0123456789bcdefghjkmnpqrstuvwxyz"
+
+def geohash(lat: float, lon: float, precision: int = 5) -> str:
+    """
+    Encode (lat, lon) as a geohash string of `precision` characters.
+
+    Each character adds ~2.5 bits of precision per axis:
+        5 chars  ≈ ±2.4 km  (good enough for city-scale neighbour queries)
+        6 chars  ≈ ±0.6 km
+        7 chars  ≈ ±76  m
+
+    The algorithm interleaves bits from the longitude range (even positions)
+    and latitude range (odd positions), then encodes every 5-bit group as a
+    base32 character.
+    """
+    lat_lo, lat_hi = -90.0,  90.0
+    lon_lo, lon_hi = -180.0, 180.0
+
+    bits      = 0   # accumulator for the current 5-bit group
+    bit_count = 0   # how many bits are loaded into `bits`
+    is_lon    = True  # alternate: longitude bit first
+    result    = []
+
+    while len(result) < precision:
+        if is_lon:
+            mid = (lon_lo + lon_hi) / 2
+            if lon >= mid:
+                bits = (bits << 1) | 1
+                lon_lo = mid
+            else:
+                bits = bits << 1
+                lon_hi = mid
+        else:
+            mid = (lat_lo + lat_hi) / 2
+            if lat >= mid:
+                bits = (bits << 1) | 1
+                lat_lo = mid
+            else:
+                bits = bits << 1
+                lat_hi = mid
+
+        is_lon    = not is_lon
+        bit_count += 1
+
+        if bit_count == 5:
+            result.append(_BASE32[bits])
+            bits      = 0
+            bit_count = 0
+
+    return "".join(result)
+
+
+# ── SQLite output ─────────────────────────────────────────────────────────────
+
+def open_db(path: str) -> sqlite3.Connection:
+    con = sqlite3.connect(path)
+    con.execute("PRAGMA journal_mode = WAL")   # safe for incremental writes
+    con.execute("PRAGMA synchronous  = NORMAL")
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS pois (
+            id      INTEGER PRIMARY KEY,  -- OSM node ID
+            lat     REAL    NOT NULL,
+            lon     REAL    NOT NULL,
+            name    TEXT    NOT NULL,
+            type    TEXT    NOT NULL,     -- amenity / shop / tourism / …
+            subtype TEXT    NOT NULL,     -- fuel / hospital / cafe / …
+            geohash TEXT    NOT NULL      -- 5-char ≈ ±2.4 km cell
+        )
+    """)
+    con.execute("CREATE INDEX IF NOT EXISTS idx_geohash ON pois (geohash)")
+    con.execute("CREATE INDEX IF NOT EXISTS idx_type    ON pois (type, subtype)")
+    con.execute("CREATE INDEX IF NOT EXISTS idx_name    ON pois (name COLLATE NOCASE)")
+    con.commit()
+    return con
+
+
+def insert_batch(con: sqlite3.Connection, pois: list[dict]) -> None:
+    con.executemany(
+        "INSERT OR IGNORE INTO pois VALUES (?,?,?,?,?,?,?)",
+        [
+            (
+                p["id"], p["lat"], p["lon"],
+                p["name"], p["type"], p["subtype"],
+                geohash(p["lat"], p["lon"], precision=5),
+            )
+            for p in pois
+        ],
+    )
+    con.commit()
+
+
+def finalise_db(con: sqlite3.Connection, path: str) -> None:
+    count = con.execute("SELECT COUNT(*) FROM pois").fetchone()[0]
+    con.execute("ANALYZE")   # update query-planner statistics
+    con.close()
+    print(f"  Wrote {count:,} rows → {path}")
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
@@ -175,29 +265,35 @@ def main(
     total = len(cells)
     print()
 
-    # Query each cell and accumulate unique POIs (deduplicated by OSM node ID)
-    seen_ids: set[int]   = set()
-    all_pois: list[dict] = []
+    con = open_db(output)
+
+    # Track OSM IDs in memory to deduplicate across cell boundaries.
+    # Each ID is a 64-bit int; 100k entries ≈ 800 KB — fine for the desktop.
+    seen_ids:   set[int] = set()
+    total_kept: int      = 0
 
     for i, cell in enumerate(cells, start=1):
-        label = f"[{i:>2}/{total}] bbox={cell}"
-        query = build_query(cell)
+        label    = f"[{i:>2}/{total}] bbox={cell}"
+        query    = build_query(cell)
         elements = fetch_overpass(query, label)
 
-        new_this_cell = 0
+        batch: list[dict] = []
         for el in elements:
             if el["id"] in seen_ids:
-                continue                      # duplicate from an adjacent cell
+                continue
             poi = element_to_poi(el)
             if poi is None:
                 continue
             seen_ids.add(el["id"])
-            all_pois.append(poi)
-            new_this_cell += 1
+            batch.append(poi)
+            if total_kept + len(batch) >= max_entries:
+                break
 
-        print(f"    +{new_this_cell:,} new  |  running total: {len(all_pois):,}")
+        insert_batch(con, batch)
+        total_kept += len(batch)
+        print(f"    +{len(batch):,} new  |  running total: {total_kept:,}")
 
-        if len(all_pois) >= max_entries:
+        if total_kept >= max_entries:
             print(f"\n  Hit the {max_entries:,}-entry cap after cell {i}/{total} — stopping early.")
             print(f"  Increase MAX_ENTRIES or reduce MAX_CELL_SQ_MILES to get more granular batches.")
             break
@@ -205,12 +301,8 @@ def main(
         if i < total:
             time.sleep(REQUEST_DELAY)
 
-    # Trim to cap, then write
-    if len(all_pois) > max_entries:
-        all_pois = all_pois[:max_entries]
-
-    print(f"\nTotal unique POIs : {len(all_pois):,}")
-    write_csv(all_pois, output)
+    print(f"\nTotal unique POIs : {total_kept:,}")
+    finalise_db(con, output)
     print("Done.")
 
 
