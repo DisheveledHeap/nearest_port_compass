@@ -1,10 +1,10 @@
 {
   "C_Cpp.intelliSenseEngine": "default",
-  "clangd.path": "/Users/sreyas/.espressif/tools/esp-clang/esp-20.1.1_20250829/esp-clang/bin/clangd",
+  "clangd.path": "C:\\Espressif\\tools\\esp-clang\\esp-20.1.1_20250829\\esp-clang\\bin\\clangd.exe",
   "clangd.arguments": [
     "--background-index",
     "--query-driver=**",
-    "--compile-commands-dir=/Users/sreyas/Downloads/ESP32/nearest_port_compass/Compass/build"
+    "--compile-commands-dir=c:\\Users\\kabir\\Documents\\GitHub\\nearest_port_compass\\build"
   ],
   "idf.flashType": "UART",
   "idf.currentSetup": "/Users/sreyas/.espressif/v6.0/esp-idf",
