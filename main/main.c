@@ -24,6 +24,8 @@
 #define NVS_NAMESPACE "stepper"
 #define NVS_DIR_KEY   "direction"
 
+static char last_bt_command[80] = "None";
+
 static const gpio_num_t StepperPins[4] = {
     GPIO_NUM_25,
     GPIO_NUM_26,
@@ -211,6 +213,8 @@ static void print_dashboard(sensor_data_t *data,
         "Controls\n"
         "  Last event:    %-20s\n"
         "  Press count:   % 2d\n"
+        "Bluetooth\n"
+        "  BT command:    %-20s\n"
         "========================================\n",
         data->latitude, data->longitude,
         data->heading,
@@ -220,7 +224,8 @@ static void print_dashboard(sensor_data_t *data,
         (long)target.lat, (long)target.lon,
         relative_dir_to_port,
         last_button_event,
-        button_press_count
+        button_press_count,
+        last_bt_command
     );
 
     if (len > 0 && len < sizeof(buf)) {
@@ -244,11 +249,11 @@ void spp_callback(esp_spp_cb_event_t event,
             break;
 
         case ESP_SPP_DATA_IND_EVT:
-            printf("Received: %.*s\n",
+        snprintf(last_bt_command, sizeof(last_bt_command),
+                "%.*s",
                 param->data_ind.len,
-                param->data_ind.data);
-
-            break;
+                (char *)param->data_ind.data);
+        break;
 
         default:
             break;
@@ -260,7 +265,7 @@ void app_main(void)
     //must be first thing in app_main or pages will be misaligned with page tables
     esp_err_t ret = nvs_flash_init();
     esp_log_level_set("*", ESP_LOG_NONE);
-
+    
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
         ESP_ERROR_CHECK(nvs_flash_erase());
         ret = nvs_flash_init();
@@ -277,6 +282,15 @@ void app_main(void)
     esp_bluedroid_enable();
 
     esp_spp_register_callback(spp_callback);
+
+    ESP_ERROR_CHECK(esp_bt_controller_enable(ESP_BT_MODE_CLASSIC_BT));
+
+    ESP_ERROR_CHECK(esp_bluedroid_init());
+
+    ESP_ERROR_CHECK(esp_bluedroid_enable());
+
+    ESP_ERROR_CHECK(esp_spp_register_callback(spp_callback));
+
     esp_spp_cfg_t spp_cfg = {
         .mode = ESP_SPP_MODE_CB,
         .enable_l2cap_ertm = true,
