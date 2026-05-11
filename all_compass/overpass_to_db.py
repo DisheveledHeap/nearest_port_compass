@@ -98,7 +98,11 @@ def fetch_overpass(query: str, cell_label: str) -> list[dict]:
 
     for attempt in range(1, MAX_RETRIES + 1):
         try:
-            req = urllib.request.Request(OVERPASS_URL, data=data)
+            req = urllib.request.Request(OVERPASS_URL, data=data, headers={
+                "Content-Type": "application/x-www-form-urlencoded",
+                "Accept":       "application/json",
+                "User-Agent":   "esp32-poi-compass/1.0 (vidyarthikabir@gmail.com)",
+            })
             with urllib.request.urlopen(req, timeout=90) as resp:
                 raw      = json.load(resp)
                 elements = raw.get("elements", [])
