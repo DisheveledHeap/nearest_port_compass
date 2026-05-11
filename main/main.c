@@ -16,6 +16,11 @@
 #include "esp_timer.h"
 #include "esp_log.h"
 
+#include "esp_bt.h"
+#include "esp_bt_main.h"
+#include "esp_gap_bt_api.h"
+#include "esp_spp_api.h"
+
 #define NVS_NAMESPACE "stepper"
 #define NVS_DIR_KEY   "direction"
 
@@ -224,6 +229,32 @@ static void print_dashboard(sensor_data_t *data,
     }
 }
 
+void spp_callback(esp_spp_cb_event_t event,
+                  esp_spp_cb_param_t *param)
+{
+    switch (event) {
+
+        case ESP_SPP_INIT_EVT:
+            esp_spp_start_srv(
+                ESP_SPP_SEC_NONE,
+                ESP_SPP_ROLE_SLAVE,
+                0,
+                "JacksCompass"
+            );
+            break;
+
+        case ESP_SPP_DATA_IND_EVT:
+            printf("Received: %.*s\n",
+                param->data_ind.len,
+                param->data_ind.data);
+
+            break;
+
+        default:
+            break;
+    }
+}
+
 void app_main(void)
 {
     //must be first thing in app_main or pages will be misaligned with page tables
@@ -236,6 +267,23 @@ void app_main(void)
     }
     ESP_ERROR_CHECK(ret);
     nvs_load_direction();
+
+    esp_bt_controller_config_t bt_cfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
+
+    esp_bt_controller_init(&bt_cfg);
+    esp_bt_controller_enable(ESP_BT_MODE_CLASSIC_BT);
+
+    esp_bluedroid_init();
+    esp_bluedroid_enable();
+
+    esp_spp_register_callback(spp_callback);
+    esp_spp_cfg_t spp_cfg = {
+        .mode = ESP_SPP_MODE_CB,
+        .enable_l2cap_ertm = true,
+        .tx_buffer_size = 0
+    };
+
+    esp_spp_enhanced_init(&spp_cfg);
 
     printf("SD Card Pins: SCK=%d, MISO=%d, MOSI=%d, CS=%d\n",
         SDCardPins[2], SDCardPins[1], SDCardPins[0], SDCardPins[3]);
